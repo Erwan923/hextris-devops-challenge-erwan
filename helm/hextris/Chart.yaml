@@ -1,0 +1,12 @@
+apiVersion: v2
+name: hextris
+description: A Helm chart for Hextris game deployment
+type: application
+version: 1.0.0
+appVersion: "1.0.0"
+keywords:
+  - hextris
+  - game
+  - nginx
+maintainers:
+  - name: Erwan

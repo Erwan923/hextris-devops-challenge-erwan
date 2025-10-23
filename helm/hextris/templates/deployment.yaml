@@ -1,0 +1,30 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "hextris.fullname" . }}
+  labels:
+    app: {{ include "hextris.name" . }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      app: {{ include "hextris.name" . }}
+  template:
+    metadata:
+      labels:
+        app: {{ include "hextris.name" . }}
+    spec:
+      containers:
+      - name: hextris
+        image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+        imagePullPolicy: {{ .Values.image.pullPolicy }}
+        ports:
+        - name: http
+          containerPort: {{ .Values.service.targetPort }}
+          protocol: TCP
+        livenessProbe:
+          {{- toYaml .Values.livenessProbe | nindent 10 }}
+        readinessProbe:
+          {{- toYaml .Values.readinessProbe | nindent 10 }}
+        resources:
+          {{- toYaml .Values.resources | nindent 10 }}

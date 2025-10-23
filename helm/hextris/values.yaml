@@ -1,0 +1,51 @@
+replicaCount: 2
+
+image:
+  repository: hextris
+  pullPolicy: Never
+  tag: "latest"
+
+service:
+  type: ClusterIP
+  port: 80
+  targetPort: 80
+
+ingress:
+  enabled: true
+  className: "nginx"
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /
+  hosts:
+    - host: hextris.local
+      paths:
+        - path: /
+          pathType: Prefix
+  tls: []
+
+resources:
+  limits:
+    cpu: 200m
+    memory: 128Mi
+  requests:
+    cpu: 100m
+    memory: 64Mi
+
+autoscaling:
+  enabled: true
+  minReplicas: 2
+  maxReplicas: 5
+  targetCPUUtilizationPercentage: 80
+
+livenessProbe:
+  httpGet:
+    path: /
+    port: 80
+  initialDelaySeconds: 10
+  periodSeconds: 10
+
+readinessProbe:
+  httpGet:
+    path: /
+    port: 80
+  initialDelaySeconds: 5
+  periodSeconds: 5
