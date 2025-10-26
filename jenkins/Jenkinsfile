@@ -9,7 +9,7 @@ pipeline {
     environment {
         REGISTRY = 'erwanb44300'
         IMAGE_NAME = 'hextris'
-        BUILD_TAG = "${BUILD_NUMBER}-latest"
+        BUILD_TAG = "build-${BUILD_NUMBER}"
     }
     stages {
         stage('Checkout') {
