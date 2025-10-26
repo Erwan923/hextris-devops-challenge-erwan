@@ -20,3 +20,21 @@ Create a default fully qualified app name.
 {{- end }}
 {{- end }}
 {{- end }}
+
+{{/*
+Common labels
+*/}}
+{{- define "hextris.labels" -}}
+helm.sh/chart: {{ include "hextris.name" . }}
+{{ include "hextris.selectorLabels" . }}
+app.kubernetes.io/version: {{ .Chart.AppVersion | quote }}
+app.kubernetes.io/managed-by: {{ .Release.Service }}
+{{- end }}
+
+{{/*
+Selector labels
+*/}}
+{{- define "hextris.selectorLabels" -}}
+app.kubernetes.io/name: {{ include "hextris.name" . }}
+app.kubernetes.io/instance: {{ .Release.Name }}
+{{- end }}

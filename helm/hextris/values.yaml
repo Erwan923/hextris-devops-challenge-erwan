@@ -1,8 +1,8 @@
 replicaCount: 2
 
 image:
-  repository: hextris
-  pullPolicy: Never
+  repository: erwanb44300/hextris
+  pullPolicy: Always
   tag: "latest"
 
 service:
@@ -12,11 +12,11 @@ service:
 
 ingress:
   enabled: true
-  className: "nginx"
+  className: ""
   annotations:
     nginx.ingress.kubernetes.io/rewrite-target: /
   hosts:
-    - host: hextris.local
+    - host: ""
       paths:
         - path: /
           pathType: Prefix
