@@ -1,0 +1,113 @@
+pipeline {
+    agent {
+        kubernetes {
+            yamlFile 'jenkins/pod-template.yaml'
+            defaultContainer 'docker'
+        }
+    }
+    options {
+        buildDiscarder(logRotator(numToKeepStr: '10'))
+        timeout(time: 30, unit: 'MINUTES')
+        timestamps()
+        disableConcurrentBuilds()
+    }
+    environment {
+        REGISTRY = 'erwanb44300'
+        IMAGE_NAME = 'hextris'
+        BUILD_TAG = "${BUILD_NUMBER}-latest"
+    }
+    stages {
+        stage('Checkout') {
+            steps {
+                checkout scm
+            }
+        }
+        stage('Build Docker Image') {
+            steps {
+                container('docker') {
+                    dir('app') {
+                        sh """
+                            docker build -t ${REGISTRY}/${IMAGE_NAME}:${BUILD_TAG} .
+                            docker tag ${REGISTRY}/${IMAGE_NAME}:${BUILD_TAG} ${REGISTRY}/${IMAGE_NAME}:latest
+                        """
+                    }
+                }
+            }
+        }
+        stage('Push to Registry') {
+            steps {
+                container('docker') {
+                    sh '''
+                        echo "dckr_pat_6tHat2RljOCARuRuN3WqlERxjsE" | docker login -u erwanb44300 --password-stdin
+                        docker push ${REGISTRY}/${IMAGE_NAME}:${BUILD_TAG}
+                        docker push ${REGISTRY}/${IMAGE_NAME}:latest
+                        docker logout
+                    '''
+                }
+            }
+        }
+        stage('Deploy with Helm') {
+            steps {
+                container('helm') {
+                    writeFile file: '/tmp/kubeconfig', text: '''
+apiVersion: v1
+clusters:
+- cluster:
+    insecure-skip-tls-verify: true
+    server: https://37.59.106.116:6443
+  name: kind-hextris-cluster
+contexts:
+- context:
+    cluster: kind-hextris-cluster
+    user: kind-hextris-cluster
+  name: kind-hextris-cluster
+current-context: kind-hextris-cluster
+kind: Config
+preferences: {}
+users:
+- name: kind-hextris-cluster
+  user:
+    client-certificate-data: LS0tLS1CRUdJTiBDRVJUSUZJQ0FURS0tLS0tCk1JSURLVENDQWhHZ0F3SUJBZ0lJSllLWWgvcVBDQ1l3RFFZSktvWklodmNOQVFFTEJRQXdGVEVUTUJFR0ExVUUKQXhNS2EzVmlaWEp1WlhSbGN6QWVGdzB5TlRFd01qUXhOekV6TVRGYUZ3MHlOakV3TWpReE56RTRNVEZhTUR3eApIekFkQmdOVkJBb1RGbXQxWW1WaFpHMDZZMngxYzNSbGNpMWhaRzFwYm5NeEdUQVhCZ05WQkFNVEVHdDFZbVZ5CmJtVjBaWE10WVdSdGFXNHdnZ0VpTUEwR0NTcUdTSWIzRFFFQkFRVUFBNElCRHdBd2dnRUtBb0lCQVFDdXFUdFMKZTFkSittSEpGNHdJaitDcm14M2xOTTg5Z1JZSkpNNFZvbEpoTlkvZFYvZ0M0TExYUUpta1BwNldZOGNHdURjLworUTgxUENqaXBqNU5LbC9Hb1hhWkpKc3NoM3dpNFJmc2xRWW4zOEpsL2psV1BkWlNnSUdJaG5EUXJKOVQ3M3dQClBiSE56Y2UveWw3eTdoeGs0dmhSZTZPRXNjWkRBcmRKVWhmcXNYY241R3N5RzR5ZFZkcU9oeGRiSGM4QkR5Z2gKc3VqTkh0Q3lSQUVkWjRjR1ZDNkVpR2E1WVFHMkgwd05SQmNDWWlyZldGYjdycEZESzhocmhDWjFTbi9Cb2V4RQpGdzFBY05qaXBZTW14a014TzhiMmY5QnJva2NNSlVhSXh2aXA0RG54Q2lSN0owaDBzT0hBWXpyVXZGOVpPZkZZClZjcUJBbWJNMG1sWllWWWRBZ01CQUFHalZqQlVNQTRHQTFVZER3RUIvd1FFQXdJRm9EQVRCZ05WSFNVRUREQUsKQmdnckJnRUZCUWNEQWpBTUJnTlZIUk1CQWY4RUFqQUFNQjhHQTFVZEl3UVlNQmFBRkNZS2Y4cS9ZeHBOSWNHYQpaVUJ3Wm1EVHhoNnRNQTBHQ1NxR1NJYjNEUUVCQ3dVQUE0SUJBUUFiZVJmUFdEWkI1RXh5TlQwVG9FQi95VllRCmMzNFBzWlJVbWkzUEVsa2p0MEczbnV3S2JpWnZHOGUrKytSUFhmbVArYnZ5blhkNE1WWG92RS9KMTJDNzVWMWUKTzNLWk9oZE8wSEFBVTk0M0FwUVJMVmhJZk9QS3ZDaFp3VjFsaFEybS9BblBFNzVYaHh2SU1NYVhCSmk1b0VhZAoxdnhTNEdGOVNQSHUzUGQvZWV0MUhwY1prN1RlRkJqcmlJL1pzbzFlemU1MlVtTkQ4WWRJVG9CTkllQ0RYRURwCkZ4ejZsRmR0OFlOaFE5RzBiY2JxS21QUVQ2RnAyRGZhVEowdk1QMERGZWo3a012U3lOMGlZYmgwWWIreFJIcDYKWmhzaVFSSGRPOE5iTndaNlVmOFFyOW8wZnVyODVnM0NuNi84UWlyc2JKVkxkemRueUlja0E0QVVoMVp3Ci0tLS0tRU5EIENFUlRJRklDQVRFLS0tLS0K
+    client-key-data: LS0tLS1CRUdJTiBSU0EgUFJJVkFURSBLRVktLS0tLQpNSUlFb3dJQkFBS0NBUUVBcnFrN1VudFhTZnBoeVJlTUNJL2dxNXNkNVRUUFBZRVdDU1RPRmFKU1lUV1AzVmY0CkF1Q3kxMENacEQ2ZWxtUEhCcmczUC9rUE5Ud280cVkrVFNwZnhxRjJtU1NiTElkOEl1RVg3SlVHSjkvQ1pmNDUKVmozV1VvQ0JpSVp3MEt5ZlUrOThEejJ4emMzSHY4cGU4dTRjWk9MNFVYdWpoTEhHUXdLM1NWSVg2ckYzSitScgpNaHVNblZYYWpvY1hXeDNQQVE4b0liTG96UjdRc2tRQkhXZUhCbFF1aElobXVXRUJ0aDlNRFVRWEFtSXEzMWhXCis2NlJReXZJYTRRbWRVcC93YUhzUkJjTlFIRFk0cVdESnNaRE1Udkc5bi9RYTZKSERDVkdpTWI0cWVBNThRb2sKZXlkSWRMRGh3R002MUx4ZldUbnhXRlhLZ1FKbXpOSnBXV0ZXSFFJREFRQUJBb0lCQUJITXoyM2xnZ3paQnBRdQo0U2VTT2l4aS81WDNYdE4rejFjWk9DTitTblQ3dDNDd1lXY3hyU2hBdmllOTlmMlBwNTNvc2tERHlpZjd2SkwwCnJFN0M3Y1haZUxPOHhrK3djeGMrNTJoRis3MmVrVHBCd1dnbm55c0RTN0ExTzFRWTg1ZmpSVHBzYUMxNE5rNDIKZXB5NVpZMW1rRFlGcXJHQVNKdFZzSVk1WnBTVlhEakF0aDFZaEF3UXNGdEp1TktDVndGbTJMTEovSkd5bjQ1awpZSnJuUy9rdWhxc0dGL09MM3JwakRMZGpSZHJTL3Zsa3lwSmJwdytKUVMyRnFvWnI5RExWYWZMUlFyNDdEbmhtClVCZ1lpQzJIZFNVK1NqSGs0dUI5d1hPNzdxNmVCVG9uNDBGZVltOTMyQ20vRTd5S0NMTlU0b1VSYnFXTjNtNFcKY1d2clltVUNnWUVBd3cxMkVpcWxtV0FPdXBjSEhBQzBMcjFWenkya0FPek82czFURFVyckdYNDREMERHVENvYwpvSzRrYUVFaXA0NzZHaXliQXl4cFNqSUdPcUVSN1hQVzNsZE9aRU5DYkx2U3p6Z24zdXlqLzNzeHJKeVNqcTBhCnpVNENvT24rT0NOYi90d29xN1Q5eXVQRk02SVhGRlluRy9YNFNtbGhLeXJXUlF2NHViRW1nRDhDZ1lFQTVUeWYKaDNHSUVKUENKU1JoV2trVTVpWDhmd2N5VHVEckFaRTdwK3Q2K2QvZFJLY2R5YkwxVlh2NDdsd0V0N0tLVFFOawptTXZaeVdxL2ZwVXN1dkFieTNoeVBjQTg3L1NWbEJmYUhGVzA4SDhOR3VZN24zMTdTN0hzSlNrak1WaGhORGJDClh3SFE0WktGREluZ3hhYk1rQnZKNFI1b3A4N1FCeFB6NGp6VzBxTUNnWUJ2SXBOY3BIbjRXdGZwanJYWlNibGcKVERiQk5mTVZKOWg1eG9XRXRHUWlBVjIxcXlXUkxnbGpyL1ZFaGFCV01rdmtiL2ZlcGdaVDVRN1Jod2FzOGV6QwpnS0pFMUdIYmpHVC85cklZL1dJdjVpU1dnaHVyT1l4azRBYjFZbjJieE9IYzQ5bzBnNHA3ZUszYXpvY3g2aWljCmNOaUlwV1JjOFNwbTZ2eEw2VmpUaHdLQmdRREdINms1WkxSV3IzNENuL2pNRVpIUWdGQkVjYkhYWHFsK1IwbXEKRGVuUmdOdzZjNzFaRUNUZDV6SDB3TzhLM1hLT3NUb0duVmp6cmlFbmhFS09wdXMrNWpER2tobVl3bWxzLzFoeApXTm56YWJ1bjNnajJCWHZFcGxnVW5nTmVxS1lLZkxGdGI2SmE4MG11MXBQQUFET1k4WXQvMThwWURuVFpTVE5sCiszTW54UUtCZ0M2bjY0dlNheWlGQldIZVhiTnVZTWRsTlBNTTdtcWtPZVM4ZUU0TnFQVlY2M0o1TGMwTFlQbnQKZk5SS05TVkFtaCtqNmhZd3V0emtYWDJLcElsc0Y5QTY1Wm02bUk2bWJLTkZaK3J3YWtiTVg2NGNLbDJ0NWRCbApKWE5sYkEvOXhkUGk0TGhRL1hOTHJYVzRyblBmdmZCdVdFdW9SYmZMZTJ5NFlUdURjaHZpCi0tLS0tRU5EIFJTQSBQUklWQVRFIEtFWS0tLS0tCg==
+'''
+                    sh """
+                        export KUBECONFIG=/tmp/kubeconfig
+                        cd helm/hextris
+                        helm upgrade hextris . \
+                            --install \
+                            --namespace default \
+                            --set image.repository=${REGISTRY}/${IMAGE_NAME} \
+                            --set image.tag=${BUILD_TAG} \
+                            --wait \
+                            --timeout 5m
+                    """
+                }
+            }
+        }
+        stage('Verify Deployment') {
+            steps {
+                container('kubectl') {
+                    sh """
+                        export KUBECONFIG=/tmp/kubeconfig
+                        kubectl rollout status deployment/hextris -n default
+                        kubectl get pods -n default -l app.kubernetes.io/name=hextris
+                        kubectl get svc,ingress -n default
+                    """
+                }
+            }
+        }
+    }
+    post {
+        failure {
+            echo "Build failed: ${currentBuild.fullDisplayName}"
+        }
+        success {
+            echo "Successfully deployed ${REGISTRY}/${IMAGE_NAME}:${BUILD_TAG}"
+        }
+        cleanup {
+            container('docker') {
+                sh "docker system prune -f || true"
+            }
+        }
+    }
+}
