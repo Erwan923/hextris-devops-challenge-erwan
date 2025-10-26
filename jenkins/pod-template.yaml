@@ -9,13 +9,6 @@ spec:
   containers:
   - name: docker
     image: docker:24-dind
-    command:
-    - sh
-    - -c
-    - |
-      dockerd --host=unix:///var/run/docker.sock --host=tcp://0.0.0.0:2375 --tls=false &
-      sleep 10
-      tail -f /dev/null
     securityContext:
       privileged: true
     env:
@@ -23,14 +16,7 @@ spec:
       value: ""
     volumeMounts:
     - name: docker-sock
-      mountPath: /var/run/docker.sock
-    resources:
-      requests:
-        memory: "512Mi"
-        cpu: "500m"
-      limits:
-        memory: "1Gi"
-        cpu: "1"
+      mountPath: /var/run
   - name: kubectl
     image: bitnami/kubectl:latest
     command:
@@ -43,7 +29,8 @@ spec:
     tty: true
   volumes:
   - name: docker-sock
-    emptyDir: {}
+    hostPath:
+      path: /var/run
   restartPolicy: Never
   nodeSelector:
     kubernetes.io/os: linux
