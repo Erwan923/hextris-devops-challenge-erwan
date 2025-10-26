@@ -10,18 +10,22 @@ pipeline {
         REGISTRY = 'erwanb44300'
         IMAGE_NAME = 'hextris'
         BUILD_TAG = "build-${BUILD_NUMBER}"
+        KUBECONFIG_PATH = "${WORKSPACE}/kubeconfig"
     }
-    
+
     stages {
         stage('Checkout') {
             steps {
+                echo "Checking out source code..."
                 checkout scm
+                sh 'ls -la'
             }
         }
-        
+
         stage('Build Docker Image') {
             steps {
                 container('docker') {
+                    echo "Building Docker image ${REGISTRY}/${IMAGE_NAME}:${BUILD_TAG}"
                     dir('app') {
                         sh """
                             sleep 20
@@ -32,10 +36,11 @@ pipeline {
                 }
             }
         }
-        
+
         stage('Push to Registry') {
             steps {
                 container('docker') {
+                    echo "Pushing image to Docker Hub..."
                     sh '''
                         echo "dckr_pat_6tHat2RljOCARuRuN3WqlERxjsE" | docker login -u erwanb44300 --password-stdin
                         docker push ${REGISTRY}/${IMAGE_NAME}:${BUILD_TAG}
@@ -45,12 +50,15 @@ pipeline {
                 }
             }
         }
-        
+
         stage('Deploy with Helm') {
             steps {
                 container('helm') {
-                    writeFile file: '/tmp/kubeconfig', text: '''
-apiVersion: v1
+                    script {
+                        echo "Preparing Kubernetes configuration..."
+                        
+                        // Écrire le kubeconfig dans le workspace partagé
+                        writeFile file: env.KUBECONFIG_PATH, text: '''apiVersion: v1
 clusters:
 - cluster:
     insecure-skip-tls-verify: true
@@ -70,66 +78,102 @@ users:
     client-certificate-data: LS0tLS1CRUdJTiBDRVJUSUZJQ0FURS0tLS0tCk1JSURJVENDQWdtZ0F3SUJBZ0lJR05NY0MxSFFWWHd3RFFZSktvWklodmNOQVFFTEJRQXdGVEVUTUJFR0ExVUUKQXhNS2EzVmlaWEp1WlhSbGN6QWVGdzB5TlRFd01qWXlNREkyTkRWYUZ3MHlOakV3TWpZeU1ESTJORGxhTURReApGekFWQmdOVkJBb1REbk41YzNSbGJUcHRZWE4wWlhKek1Sa3dGd1lEVlFRREV4QnJkV0psY201bGRHVnpMV0ZrCmJXbHVNSUlCSWpBTkJna3Foa2lHOXcwQkFRRUZBQU9DQVE4QU1JSUJDZ0tDQVFFQXd4YnJEbHhJZ2JDNXY0enIKVHA2bTRJRDErV3k3THdwYzNTNGlXS01rWXhLM1N4UUttbExuZVUyMjdyUnpieXNKcUM4ZUVXT0hubi9FYkhBbQpzanB3bjVLTU10dkcxYmszSUVkSWg2ZkZiRVpuWjVFY2VMUm9RWUxiRy9RZXU1RmllVGdaczhhR2RUdTdWSG9JCnBQVmFGU05zUHNwZzF3Q1lyc0JVb1pyRm9XTS9SdXl5aGVsT2EzMVNML21GMTB3VXNWWnhONW5Rd1VqQk1GVXIKcU44dUo1NmFSekxyMkphekkwTFk4c0w5NTJuZWw5bUtKT1Vmam9HN3ZmZDRnMnlEY1hBWFAvaUs3NWY0enk5YwpDSWtxV29HRkdpb1oycjZrUWQ4T3QwbDJ1K3dtSFJJMmRKVjhXeFFMOEthWi96dEJlLzdjTCtCUHF4dDVldEpxClhOV29od0lEQVFBQm8xWXdWREFPQmdOVkhROEJBZjhFQkFNQ0JhQXdFd1lEVlIwbEJBd3dDZ1lJS3dZQkJRVUgKQXdJd0RBWURWUjBUQVFIL0JBSXdBREFmQmdOVkhTTUVHREFXZ0JRSlhOdGdNelh2OU9IMGF3b3Y0YkxWUHZRUwpXVEFOQmdrcWhraUc5dzBCQVFzRkFBT0NBUUVBU2YrTm5VVmhJeDZYZWRkY1RCSG5nenhwNlpRS2Z6TC9RckJ5CnVrc3NSQ0ZTVTNJZituQnlnVEtnUXY1Rm5nb3hpWFdzbGZFbWxWNUc3R3lvYVB6dVNhV1lnRDdyL1hLY29Kd2sKdGJ3Y0ZRZFhjWlVKT3BpL0tVMVprRWQ0dFZaQVMvbWNyWlMza29nbmNSZCsxeERHTjgyby94T2gydXZzU2tZSApUc1A0QUh6ZU8yY0s0eGIvZEJaQkJxb2c2b0o5YXRJVzdnM0lTTnpsNEQwZ1dVS2F4Mk1RRGdjQjd2YmlUbzFICnltUEY1S3JVdGU2YkNBOXdNUTRZSHY4RDRjUlpkK0hhL3MyWDV4dXU5d3NoTXhaVGpuTGZYM001ZXNscDJET2QKa3FaUTJlaUxyMFd6NS84VXE4d2xXSGVDSWJ0TVMyL2NUTGN3WlZTakdEdThNY08wY1E9PQotLS0tLUVORCBDRVJUSUZJQ0FURS0tLS0tCg==
     client-key-data: LS0tLS1CRUdJTiBSU0EgUFJJVkFURSBLRVktLS0tLQpNSUlFb3dJQkFBS0NBUUVBd3hickRseElnYkM1djR6clRwNm00SUQxK1d5N0x3cGMzUzRpV0tNa1l4SzNTeFFLCm1sTG5lVTIyN3JSemJ5c0pxQzhlRVdPSG5uL0ViSEFtc2pwd241S01NdHZHMWJrM0lFZEloNmZGYkVablo1RWMKZUxSb1FZTGJHL1FldTVGaWVUZ1pzOGFHZFR1N1ZIb0lwUFZhRlNOc1BzcGcxd0NZcnNCVW9ackZvV00vUnV5eQpoZWxPYTMxU0wvbUYxMHdVc1ZaeE41blF3VWpCTUZVcnFOOHVKNTZhUnpMcjJKYXpJMExZOHNMOTUybmVsOW1LCkpPVWZqb0c3dmZkNGcyeURjWEFYUC9pSzc1ZjR6eTljQ0lrcVdvR0ZHaW9aMnI2a1FkOE90MGwydSt3bUhSSTIKZEpWOFd4UUw4S2FaL3p0QmUvN2NMK0JQcXh0NWV0SnFYTldvaHdJREFRQUJBb0lCQVFDcjUwSHdRWGpTYm5yKwpRcG9GaU43YTdFZlNKUEU3bmhIK0EyellWY2oyVThPWE1HMjNWbDRKRVdXa0tQV2VlM25pN01HOTZNblQ3Qm1VCnc2NFZWbEZ2Q3A3bklhbXZJYWxsaytwaFBvQkR6RFhKbUtCUjdBWUIwK0JtWFZISFRYQk1DQmI5eG0wc1dCblYKY2tLenVFNU1XZzVEdGVobkMydCtjSk1pWTFMSnhUT05SWE8wcm1OV3ZXeU9OSzlXS1VleXBPbEF4YW9VWHNZdgpZaG1ERW4ybi84b3J1V1IxU0Q2UXFNdjhySFBOa0Y3VkN3UlFSY2xWNUFZay9qUEJieGs2L1dvdUN0QXBoVVdzCm4wTllKM2pxQW9PUWJMK01janhIOE5ESk9JWElDWUYyR0lqT05CUTFsNS80N3JvUkh0akw2N0tyMUVxSEtVTWwKdjdYRGRSZGhBb0dCQU5GM2lmdnVCRVpQWXFETWJxRVRjT1BVZDQ4TlpweDhSVUwrZXZDOWN0eWR2bE11dGxXMAo4a1V5Y24yRDRBRXpjYXZZUU9EbHF6MnFUQ291QkQrMXJGUlV0SitMcHNMaEJ1SmJGdm9sVWVDNmdEN3BEZm5CCkh0bHRTTzVocEJGVnZueXF0NitiM2d1MThWRmRXT21obVdMVTMzWjhPbi9xdGF5cm5YM0g1UWJkQW9HQkFPNXQKdXRhSmpzZzNNaHBDUVBHRkJ6cTliY0NicDlENlZ1bGs1dm5FS2ZxandqclBNNHZ5OXRsMi94UWtvOUttcHVCawp6SmUvbVJqbDhPUStQUTQyYVUxV0hxZ0xlQW11cnFzcVNpT2RWcXM3K3VhK2VENlBDZnpCTTBRWFpuTitaMXNiCmh5RE5vVWdqSkRxbkdUQXlya3FoTnpNODZ0bXZIQk8xQ2Y4aUpZeXpBb0dBTWVoNGdRVTZFWUtTcmx0bk5Jdk0KUnd4MW5Da0dQTnpESis0NFhxblU5MG5DY2xGYjhsblZxN1VVWUdHT2V0ckdCN3JUNG9IMlpnL3dhOUJoQk1rRgprV1pKVHdaWUtuQ3hVamQvNXdRRFdUYzJuVWFzSk1qbHo4cGhLU01zazFESnZTeHo3YXlHb0dXdVpNT0lEc3FKCklHbzJBQ1lqVGgwZlFrLzFpMldZWlNVQ2dZQUZzbjJLYnRNSW1ia0t3NWFGcnVZVFV6OXlJTVlMeWsrVldDSGsKeWZrdTBnYnNITk5nZnJmRFRvS2QycHBIaUUvb2dNQWF5Q3RDV3d3OGgvZ3hoTDlUWjhGbnhvNWh2TmpUb2prUApUTTByWGsyS2dmYWhtQTFuQ3I3TTI3cEkvRFpBQ1JKYmlFNVlTTzZ1c0J0NytWb00wbmxkTWhGeWppcWZsZTNkCk9OV28zUUtCZ0MzUXJ3SjN4aURHRFNsMHpLMDZja1hBdjJpcTFyQVZTbGVtUm9Td0s3SjJmL1BReGMzNEp0SFMKeDUyUXlRdDJhdGd3VXZyT2pTejdBTFdUNHZaN09JcVBSNGM1QlRxSWc4M1cyM2lQUjV1R0dqaFo4TDRkV3J4KwpPdkZFR2lIY1BMdHhBaGZ4bExKQStDZHBCNkFZOTNCbWR3K1FMMTFMbXU5alp3Uldmd003Ci0tLS0tRU5EIFJTQSBQUklWQVRFIEtFWS0tLS0tCg==
 '''
-                    sh """
-                        cd helm/hextris
-                        helm upgrade hextris . \
-                            --kubeconfig=/tmp/kubeconfig \
-                            --install \
-                            --namespace default \
-                            --set image.repository=${REGISTRY}/${IMAGE_NAME} \
-                            --set image.tag=${BUILD_TAG} \
-                            --wait \
-                            --timeout 5m
-                    """
+                        
+                        echo "Verifying kubeconfig file creation..."
+                        sh """
+                            ls -la ${KUBECONFIG_PATH}
+                            echo "Kubeconfig file size: \$(wc -c < ${KUBECONFIG_PATH}) bytes"
+                        """
+                        
+                        echo "Deploying application with Helm..."
+                        dir('helm/hextris') {
+                            sh """
+                                helm upgrade hextris . \
+                                    --kubeconfig=${KUBECONFIG_PATH} \
+                                    --install \
+                                    --namespace default \
+                                    --set image.repository=${REGISTRY}/${IMAGE_NAME} \
+                                    --set image.tag=${BUILD_TAG} \
+                                    --wait \
+                                    --timeout 5m
+                            """
+                        }
+                        
+                        echo "Deployment completed successfully!"
+                    }
                 }
             }
         }
-        
+
         stage('Verify Deployment') {
             steps {
                 container('kubectl') {
-                    writeFile file: '/tmp/kubeconfig', text: '''
-apiVersion: v1
-clusters:
-- cluster:
-    insecure-skip-tls-verify: true
-    server: https://37.59.106.116:6443
-  name: kind-hextris-cluster
-contexts:
-- context:
-    cluster: kind-hextris-cluster
-    user: kind-hextris-cluster
-  name: kind-hextris-cluster
-current-context: kind-hextris-cluster
-kind: Config
-preferences: {}
-users:
-- name: kind-hextris-cluster
-  user:
-    client-certificate-data: LS0tLS1CRUdJTiBDRVJUSUZJQ0FURS0tLS0tCk1JSURJVENDQWdtZ0F3SUJBZ0lJR05NY0MxSFFWWHd3RFFZSktvWklodmNOQVFFTEJRQXdGVEVUTUJFR0ExVUUKQXhNS2EzVmlaWEp1WlhSbGN6QWVGdzB5TlRFd01qWXlNREkyTkRWYUZ3MHlOakV3TWpZeU1ESTJORGxhTURReApGekFWQmdOVkJBb1REbk41YzNSbGJUcHRZWE4wWlhKek1Sa3dGd1lEVlFRREV4QnJkV0psY201bGRHVnpMV0ZrCmJXbHVNSUlCSWpBTkJna3Foa2lHOXcwQkFRRUZBQU9DQVE4QU1JSUJDZ0tDQVFFQXd4YnJEbHhJZ2JDNXY0enIKVHA2bTRJRDErV3k3THdwYzNTNGlXS01rWXhLM1N4UUttbExuZVUyMjdyUnpieXNKcUM4ZUVXT0hubi9FYkhBbQpzanB3bjVLTU10dkcxYmszSUVkSWg2ZkZiRVpuWjVFY2VMUm9RWUxiRy9RZXU1RmllVGdaczhhR2RUdTdWSG9JCnBQVmFGU05zUHNwZzF3Q1lyc0JVb1pyRm9XTS9SdXl5aGVsT2EzMVNML21GMTB3VXNWWnhONW5Rd1VqQk1GVXIKcU44dUo1NmFSekxyMkphekkwTFk4c0w5NTJuZWw5bUtKT1Vmam9HN3ZmZDRnMnlEY1hBWFAvaUs3NWY0enk5YwpDSWtxV29HRkdpb1oycjZrUWQ4T3QwbDJ1K3dtSFJJMmRKVjhXeFFMOEthWi96dEJlLzdjTCtCUHF4dDVldEpxClhOV29od0lEQVFBQm8xWXdWREFPQmdOVkhROEJBZjhFQkFNQ0JhQXdFd1lEVlIwbEJBd3dDZ1lJS3dZQkJRVUgKQXdJd0RBWURWUjBUQVFIL0JBSXdBREFmQmdOVkhTTUVHREFXZ0JRSlhOdGdNelh2OU9IMGF3b3Y0YkxWUHZRUwpXVEFOQmdrcWhraUc5dzBCQVFzRkFBT0NBUUVBU2YrTm5VVmhJeDZYZWRkY1RCSG5nenhwNlpRS2Z6TC9RckJ5CnVrc3NSQ0ZTVTNJZituQnlnVEtnUXY1Rm5nb3hpWFdzbGZFbWxWNUc3R3lvYVB6dVNhV1lnRDdyL1hLY29Kd2sKdGJ3Y0ZRZFhjWlVKT3BpL0tVMVprRWQ0dFZaQVMvbWNyWlMza29nbmNSZCsxeERHTjgyby94T2gydXZzU2tZSApUc1A0QUh6ZU8yY0s0eGIvZEJaQkJxb2c2b0o5YXRJVzdnM0lTTnpsNEQwZ1dVS2F4Mk1RRGdjQjd2YmlUbzFICnltUEY1S3JVdGU2YkNBOXdNUTRZSHY4RDRjUlpkK0hhL3MyWDV4dXU5d3NoTXhaVGpuTGZYM001ZXNscDJET2QKa3FaUTJlaUxyMFd6NS84VXE4d2xXSGVDSWJ0TVMyL2NUTGN3WlZTakdEdThNY08wY1E9PQotLS0tLUVORCBDRVJUSUZJQ0FURS0tLS0tCg==
-    client-key-data: LS0tLS1CRUdJTiBSU0EgUFJJVkFURSBLRVktLS0tLQpNSUlFb3dJQkFBS0NBUUVBd3hickRseElnYkM1djR6clRwNm00SUQxK1d5N0x3cGMzUzRpV0tNa1l4SzNTeFFLCm1sTG5lVTIyN3JSemJ5c0pxQzhlRVdPSG5uL0ViSEFtc2pwd241S01NdHZHMWJrM0lFZEloNmZGYkVablo1RWMKZUxSb1FZTGJHL1FldTVGaWVUZ1pzOGFHZFR1N1ZIb0lwUFZhRlNOc1BzcGcxd0NZcnNCVW9ackZvV00vUnV5eQpoZWxPYTMxU0wvbUYxMHdVc1ZaeE41blF3VWpCTUZVcnFOOHVKNTZhUnpMcjJKYXpJMExZOHNMOTUybmVsOW1LCkpPVWZqb0c3dmZkNGcyeURjWEFYUC9pSzc1ZjR6eTljQ0lrcVdvR0ZHaW9aMnI2a1FkOE90MGwydSt3bUhSSTIKZEpWOFd4UUw4S2FaL3p0QmUvN2NMK0JQcXh0NWV0SnFYTldvaHdJREFRQUJBb0lCQVFDcjUwSHdRWGpTYm5yKwpRcG9GaU43YTdFZlNKUEU3bmhIK0EyellWY2oyVThPWE1HMjNWbDRKRVdXa0tQV2VlM25pN01HOTZNblQ3Qm1VCnc2NFZWbEZ2Q3A3bklhbXZJYWxsaytwaFBvQkR6RFhKbUtCUjdBWUIwK0JtWFZISFRYQk1DQmI5eG0wc1dCblYKY2tLenVFNU1XZzVEdGVobkMydCtjSk1pWTFMSnhUT05SWE8wcm1OV3ZXeU9OSzlXS1VleXBPbEF4YW9VWHNZdgpZaG1ERW4ybi84b3J1V1IxU0Q2UXFNdjhySFBOa0Y3VkN3UlFSY2xWNUFZay9qUEJieGs2L1dvdUN0QXBoVVdzCm4wTllKM2pxQW9PUWJMK01janhIOE5ESk9JWElDWUYyR0lqT05CUTFsNS80N3JvUkh0akw2N0tyMUVxSEtVTWwKdjdYRGRSZGhBb0dCQU5GM2lmdnVCRVpQWXFETWJxRVRjT1BVZDQ4TlpweDhSVUwrZXZDOWN0eWR2bE11dGxXMAo4a1V5Y24yRDRBRXpjYXZZUU9EbHF6MnFUQ291QkQrMXJGUlV0SitMcHNMaEJ1SmJGdm9sVWVDNmdEN3BEZm5CCkh0bHRTTzVocEJGVnZueXF0NitiM2d1MThWRmRXT21obVdMVTMzWjhPbi9xdGF5cm5YM0g1UWJkQW9HQkFPNXQKdXRhSmpzZzNNaHBDUVBHRkJ6cTliY0NicDlENlZ1bGs1dm5FS2ZxandqclBNNHZ5OXRsMi94UWtvOUttcHVCawp6SmUvbVJqbDhPUStQUTQyYVUxV0hxZ0xlQW11cnFzcVNpT2RWcXM3K3VhK2VENlBDZnpCTTBRWFpuTitaMXNiCmh5RE5vVWdqSkRxbkdUQXlya3FoTnpNODZ0bXZIQk8xQ2Y4aUpZeXpBb0dBTWVoNGdRVTZFWUtTcmx0bk5Jdk0KUnd4MW5Da0dQTnpESis0NFhxblU5MG5DY2xGYjhsblZxN1VVWUdHT2V0ckdCN3JUNG9IMlpnL3dhOUJoQk1rRgprV1pKVHdaWUtuQ3hVamQvNXdRRFdUYzJuVWFzSk1qbHo4cGhLU01zazFESnZTeHo3YXlHb0dXdVpNT0lEc3FKCklHbzJBQ1lqVGgwZlFrLzFpMldZWlNVQ2dZQUZzbjJLYnRNSW1ia0t3NWFGcnVZVFV6OXlJTVlMeWsrVldDSGsKeWZrdTBnYnNITk5nZnJmRFRvS2QycHBIaUUvb2dNQWF5Q3RDV3d3OGgvZ3hoTDlUWjhGbnhvNWh2TmpUb2prUApUTTByWGsyS2dmYWhtQTFuQ3I3TTI3cEkvRFpBQ1JKYmlFNVlTTzZ1c0J0NytWb00wbmxkTWhGeWppcWZsZTNkCk9OV28zUUtCZ0MzUXJ3SjN4aURHRFNsMHpLMDZja1hBdjJpcTFyQVZTbGVtUm9Td0s3SjJmL1BReGMzNEp0SFMKeDUyUXlRdDJhdGd3VXZyT2pTejdBTFdUNHZaN09JcVBSNGM1QlRxSWc4M1cyM2lQUjV1R0dqaFo4TDRkV3J4KwpPdkZFR2lIY1BMdHhBaGZ4bExKQStDZHBCNkFZOTNCbWR3K1FMMTFMbXU5alp3Uldmd003Ci0tLS0tRU5EIFJTQSBQUklWQVRFIEtFWS0tLS0tCg==
-'''
-                    sh """
-                        kubectl --kubeconfig=/tmp/kubeconfig rollout status deployment/hextris -n default
-                        kubectl --kubeconfig=/tmp/kubeconfig get pods -n default -l app.kubernetes.io/name=hextris
-                        kubectl --kubeconfig=/tmp/kubeconfig get svc,ingress -n default
-                    """
+                    script {
+                        echo "Verifying deployment status..."
+                        
+                        // Réutiliser le même kubeconfig du workspace
+                        sh """
+                            echo "Checking rollout status..."
+                            kubectl --kubeconfig=${KUBECONFIG_PATH} rollout status deployment/hextris -n default --timeout=2m
+                            
+                            echo ""
+                            echo "=== Pods Status ==="
+                            kubectl --kubeconfig=${KUBECONFIG_PATH} get pods -n default -l app.kubernetes.io/name=hextris -o wide
+                            
+                            echo ""
+                            echo "=== Services ==="
+                            kubectl --kubeconfig=${KUBECONFIG_PATH} get svc -n default
+                            
+                            echo ""
+                            echo "=== Ingress ==="
+                            kubectl --kubeconfig=${KUBECONFIG_PATH} get ingress -n default
+                            
+                            echo ""
+                            echo "=== Deployment Details ==="
+                            kubectl --kubeconfig=${KUBECONFIG_PATH} describe deployment/hextris -n default | head -30
+                        """
+                        
+                        echo "Verification completed!"
+                    }
                 }
             }
         }
     }
-    
+
     post {
-        failure {
-            echo "Build failed: ${currentBuild.fullDisplayName}"
-        }
         success {
-            echo "Successfully deployed ${REGISTRY}/${IMAGE_NAME}:${BUILD_TAG}"
+            echo "✅ Pipeline completed successfully!"
+            echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+            echo "Application: ${REGISTRY}/${IMAGE_NAME}:${BUILD_TAG}"
+            echo "Deployment: hextris"
+            echo "Namespace: default"
+            echo "Build Number: ${BUILD_NUMBER}"
+            echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
         }
-        cleanup {
+        
+        failure {
+            echo "❌ Pipeline failed!"
+            echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+            echo "Build: ${currentBuild.fullDisplayName}"
+            echo "Failed at stage: ${env.STAGE_NAME}"
+            echo "Build Number: ${BUILD_NUMBER}"
+            echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+        }
+        
+        always {
             container('docker') {
-                sh "docker system prune -f || true"
+                echo "Cleaning up Docker resources..."
+                sh '''
+                    docker system prune -f || true
+                    echo "Docker cleanup completed"
+                '''
             }
+        }
+        
+        cleanup {
+            echo "Cleaning up workspace..."
+            sh "rm -f ${KUBECONFIG_PATH} || true"
+            echo "Cleanup completed"
         }
     }
 }
