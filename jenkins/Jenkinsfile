@@ -5,12 +5,7 @@ pipeline {
             defaultContainer 'docker'
         }
     }
-    options {
-        buildDiscarder(logRotator(numToKeepStr: '10'))
-        timeout(time: 30, unit: 'MINUTES')
-        timestamps()
-        disableConcurrentBuilds()
-    }
+
     environment {
         REGISTRY = 'erwanb44300'
         IMAGE_NAME = 'hextris'
