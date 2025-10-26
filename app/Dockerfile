@@ -2,11 +2,12 @@ FROM nginx:alpine
 
 WORKDIR /usr/share/nginx/html
 
-RUN rm -rf ./*
+RUN rm -rf ./* && \
+    apk add --no-cache git && \
+    git clone https://github.com/Hextris/hextris.git . && \
+    apk del git
 
-COPY hextris-src/ .
-
-COPY app/nginx/default.conf /etc/nginx/conf.d/default.conf
+COPY nginx/default.conf /etc/nginx/conf.d/default.conf
 
 RUN chown -R nginx:nginx /usr/share/nginx/html && \
     chmod -R 755 /usr/share/nginx/html && \
@@ -19,3 +20,5 @@ HEALTHCHECK --interval=30s --timeout=3s \
   CMD wget --no-verbose --tries=1 --spider http://localhost:80/ || exit 1
 
 USER nginx
+
+CMD ["nginx", "-g", "daemon off;"]
