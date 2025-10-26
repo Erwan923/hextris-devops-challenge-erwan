@@ -22,6 +22,7 @@ pipeline {
                 container('docker') {
                     dir('app') {
                         sh """
+			    sleep 20
                             docker build -t ${REGISTRY}/${IMAGE_NAME}:${BUILD_TAG} .
                             docker tag ${REGISTRY}/${IMAGE_NAME}:${BUILD_TAG} ${REGISTRY}/${IMAGE_NAME}:latest
                         """
