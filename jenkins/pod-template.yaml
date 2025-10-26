@@ -9,6 +9,14 @@ spec:
   containers:
   - name: docker
     image: docker:24-dind
+    command:
+    - sh
+    - -c
+    - |
+      dockerd-entrypoint.sh &
+      sleep 10
+      cat
+    tty: true
     securityContext:
       privileged: true
     env:
