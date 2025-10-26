@@ -7,20 +7,14 @@ metadata:
 spec:
   serviceAccountName: default
   containers:
-  - name: dind
-    image: docker:24-dind
+  - name: docker
+    image: docker:dind
+    command: ['dockerd-entrypoint.sh']
     securityContext:
       privileged: true
     env:
     - name: DOCKER_TLS_CERTDIR
       value: ""
-    - name: DOCKER_DRIVER
-      value: overlay2
-    ports:
-    - containerPort: 2375
-    volumeMounts:
-    - name: docker-graph
-      mountPath: /var/lib/docker
     resources:
       requests:
         memory: "512Mi"
@@ -28,21 +22,6 @@ spec:
       limits:
         memory: "1Gi"
         cpu: "1"
-  - name: docker
-    image: docker:24-cli
-    command:
-    - cat
-    tty: true
-    env:
-    - name: DOCKER_HOST
-      value: tcp://localhost:2375
-    resources:
-      requests:
-        memory: "256Mi"
-        cpu: "200m"
-      limits:
-        memory: "512Mi"
-        cpu: "500m"
   - name: kubectl
     image: bitnami/kubectl:latest
     command:
@@ -53,9 +32,6 @@ spec:
     command:
     - cat
     tty: true
-  volumes:
-  - name: docker-graph
-    emptyDir: {}
   restartPolicy: Never
   nodeSelector:
     kubernetes.io/os: linux
