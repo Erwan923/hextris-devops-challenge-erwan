@@ -33,7 +33,7 @@ spec:
     - cat
     tty: true
   - name: helm
-    image: alpine/helm:latest
+    image: alpine/k8s:1.30.6
     command:
     - cat
     tty: true
