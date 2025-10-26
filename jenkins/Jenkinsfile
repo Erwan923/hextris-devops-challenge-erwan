@@ -57,7 +57,6 @@ pipeline {
                     script {
                         echo "Preparing Kubernetes configuration..."
                         
-                        // Écrire le kubeconfig dans le workspace partagé
                         writeFile file: env.KUBECONFIG_PATH, text: '''apiVersion: v1
 clusters:
 - cluster:
@@ -107,11 +106,10 @@ users:
 
         stage('Verify Deployment') {
             steps {
-                container('kubectl') {
+                container('helm') {
                     script {
                         echo "Verifying deployment status..."
                         
-                        // Réutiliser le même kubeconfig du workspace
                         sh """
                             echo "Checking rollout status..."
                             kubectl --kubeconfig=${KUBECONFIG_PATH} rollout status deployment/hextris -n default --timeout=2m
