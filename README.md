@@ -252,19 +252,6 @@ helm rollback hextris <revision>
 | **Jenkins K8s Agents** | Ephemeral build agents with isolated containers. Resource-efficient and scalable. Eliminates agent maintenance overhead. |
 | **Docker-in-Docker** | Enables Docker builds within Kubernetes pods. Isolated build environments prevent cache conflicts. |
 
-## Continuous Improvement
-
-| Enhancement | Priority | Impact |
-|-------------|----------|--------|
-| TLS certificates via Cert-Manager | High | Production security compliance |
-| Prometheus + Grafana monitoring | High | Observability and SLA tracking |
-| ArgoCD GitOps integration | Medium | Declarative deployments, drift detection |
-| Trivy security scanning | Medium | CVE detection in container images |
-| Blue-green deployments | Low | Zero-downtime releases |
-
-## Repository
-
-https://github.com/Erwan923/hextris-devops-challenge-erwan
 
 ## Author
 
