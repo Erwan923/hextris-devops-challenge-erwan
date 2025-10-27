@@ -40,6 +40,7 @@ The infrastructure is provisioned using Terraform, which creates the Kind cluste
 - kubectl >= 1.28
 - helm >= 3.13
 
+You can find an installation script for all these requirements in /scripts
 
 ## Infrastructure Setup
 
