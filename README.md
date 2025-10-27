@@ -270,7 +270,6 @@ https://github.com/Erwan923/hextris-devops-challenge-erwan
 
 Erwan B.  
 DevOps Engineer  
-Contact: erwan.brunet44300@gmail.com
 
 ## License
 
