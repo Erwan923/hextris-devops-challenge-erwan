@@ -40,35 +40,6 @@ The infrastructure is provisioned using Terraform, which creates the Kind cluste
 - kubectl >= 1.28
 - helm >= 3.13
 
-## Project Structure
-
-```
-.
-├── app/
-│   ├── Dockerfile              # Multi-stage Nginx-based container
-│   └── nginx/
-│       └── default.conf        # Nginx configuration
-├── helm/
-│   └── hextris/
-│       ├── Chart.yaml
-│       ├── values.yaml
-│       └── templates/
-│           ├── deployment.yaml  # 2 replicas with resource limits
-│           ├── service.yaml     # ClusterIP service
-│           ├── ingress.yaml     # External access configuration
-│           ├── configmap.yaml   # Nginx config injection
-│           └── hpa.yaml         # Horizontal Pod Autoscaler
-├── jenkins/
-│   ├── Jenkinsfile             # Declarative pipeline
-│   └── pod-template.yaml       # Kubernetes agent configuration
-├── terraform/
-│   ├── main.tf                 # Kind cluster provisioning
-│   ├── provider.tf
-│   ├── variables.tf
-│   └── outputs.tf
-├── pipeline.png                # CI/CD architecture diagram
-└── README.md
-```
 
 ## Infrastructure Setup
 
