@@ -12,31 +12,23 @@ This project implements a production-ready CI/CD pipeline for deploying the Hext
 
 ## Architecture
 
-![Architecture Diagram](./docs/architecture-diagram.png)
+![Architecture Diagram](./pipeline.png)
 
-*CI/CD Pipeline Architecture: The workflow shows the complete deployment lifecycle from code commit to production, with Jenkins running in TII's Kubernetes cluster orchestrating builds via Docker Hub and deployments to the Kind cluster.*
+*CI/CD pipeline architecture showing the complete deployment lifecycle from code commit to production*
 
 ### Workflow Description
 
-The CI/CD pipeline orchestrates the deployment through five main stages:
+**1. Code Push** - Developers commit changes to GitHub repository
 
-**1. Code Push (Developer → GitHub)**
-Developers push code changes to the GitHub repository, which serves as the single source of truth for the application and infrastructure configuration.
+**2. Pipeline Trigger** - GitHub webhook triggers Jenkins in TII's Kubernetes cluster
 
-**2. Pipeline Trigger (GitHub → Jenkins)**
-GitHub webhook triggers the Jenkins pipeline running in TII's Kubernetes cluster. Jenkins spawns an ephemeral pod containing three isolated containers (Docker, Helm, kubectl) for the build process.
+**3. Build & Push** - Jenkins builds Docker image and pushes to Docker Hub registry
 
-**3. Image Build & Push (Jenkins → Docker Hub)**
-The Docker container builds the application image using the Dockerfile, tags it with the build number, and pushes it to Docker Hub registry for artifact storage and distribution.
+**4. Deploy** - Helm deploys application to Kind cluster with 2 replicas and auto-scaling
 
-**4. Kubernetes Deployment (Jenkins → Kind Cluster)**
-The Helm container deploys the application to the Kind cluster using Helm charts. The deployment creates 2 replicas with configured resource limits, health probes, and auto-scaling capabilities.
+**5. Pull Image** - Kubernetes pulls application image from Docker Hub during deployment
 
-**5. Image Pull (Docker Hub → Kind Cluster)**
-During deployment, Kubernetes pulls the application image from Docker Hub to the local Kind cluster, creating the pods that serve the Hextris application.
-
-**Infrastructure Provisioning:**
-Terraform provisions the Kind cluster on the local VPS, creating the necessary infrastructure including the Kubernetes control plane, worker nodes, and ingress controller.
+The infrastructure is provisioned using Terraform, which creates the Kind cluster on the local VPS.
 
 ## Prerequisites
 
@@ -74,8 +66,7 @@ Terraform provisions the Kind cluster on the local VPS, creating the necessary i
 │   ├── provider.tf
 │   ├── variables.tf
 │   └── outputs.tf
-├── docs/
-│   └── architecture-diagram.png # CI/CD architecture diagram
+├── pipeline.png                # CI/CD architecture diagram
 └── README.md
 ```
 
@@ -107,9 +98,7 @@ kubectl get nodes
 
 ## Application Containerization
 
-### Dockerfile Strategy
-
-The application uses a multi-stage build optimized for production:
+The application uses an Alpine-based Nginx container optimized for production:
 
 ```dockerfile
 FROM nginx:alpine
@@ -118,33 +107,20 @@ COPY nginx/default.conf /etc/nginx/conf.d/default.conf
 EXPOSE 80
 ```
 
-Key features:
+**Benefits:**
 - Lightweight Alpine base (< 50MB)
 - Static content served by Nginx
-- Custom Nginx configuration for SPA routing
+- Custom routing configuration
 
 ## Helm Chart Configuration
 
-### Key Components
+**Deployment:** 2 replicas, resource limits (CPU: 200m, Memory: 128Mi), liveness/readiness probes
 
-**Deployment:**
-- 2 replicas for high availability
-- Resource limits: CPU (200m), Memory (128Mi)
-- Liveness and readiness probes
-- Rolling update strategy
+**Service:** ClusterIP on port 80
 
-**Service:**
-- Type: ClusterIP
-- Port: 80
-- Selector: app=hextris
+**Ingress:** Nginx ingress controller with wildcard host
 
-**Ingress:**
-- Nginx ingress controller
-- Path-based routing
-- Host: wildcard (*)
-
-### Deployment
-
+**Manual Deployment:**
 ```bash
 helm upgrade hextris ./helm/hextris \
   --install \
@@ -157,44 +133,22 @@ helm upgrade hextris ./helm/hextris \
 
 ### Jenkins Configuration
 
-The pipeline uses Kubernetes pod templates with three containers:
-
-**Pod Template (`jenkins/pod-template.yaml`):**
-- `docker`: Docker-in-Docker for image builds
-- `helm`: Alpine/k8s for Helm deployments
-- `kubectl`: Bitnami kubectl for verification
+Jenkins runs in TII's Kubernetes cluster and uses pod templates with three containers:
+- **docker**: Docker-in-Docker for image builds
+- **helm**: Alpine/k8s for deployments  
+- **kubectl**: Bitnami kubectl for verification
 
 ### Pipeline Stages
 
-1. **Checkout**: Clone repository from GitHub
-2. **Build Docker Image**: Build and tag with build number
-3. **Push to Registry**: Push to Docker Hub with credentials
-4. **Deploy with Helm**: Upgrade or install release with kubeconfig
-5. **Verify Deployment**: Check rollout status and pod health
+1. **Checkout** - Clone repository from GitHub
+2. **Build** - Build and tag Docker image with build number
+3. **Push** - Push image to Docker Hub registry
+4. **Deploy** - Deploy application using Helm with kubeconfig
+5. **Verify** - Check rollout status and pod health
 
-### Pipeline Execution
-
-```groovy
-pipeline {
-    agent {
-        kubernetes {
-            yamlFile 'jenkins/pod-template.yaml'
-        }
-    }
-    environment {
-        REGISTRY = 'erwanb44300'
-        IMAGE_NAME = 'hextris'
-        BUILD_TAG = "build-${BUILD_NUMBER}"
-        KUBECONFIG_PATH = "${WORKSPACE}/kubeconfig"
-    }
-    stages { ... }
-}
-```
-
-Key features:
+**Key Features:**
 - Declarative pipeline syntax
-- Kubeconfig injected via writeFile
-- Workspace-based file sharing between containers
+- Kubeconfig injected via workspace
 - Automated cleanup and Docker pruning
 
 ## Security Considerations
